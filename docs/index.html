@@ -1,1 +1,370 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>手机看视频 · 把电脑里的片子变成手机上的私人影院</title>
+<meta name="description" content="一个双击即用的 Windows 小工具：选定文件夹或视频，手机连同一个 WiFi 就能在浏览器里播放。纯 Python 标准库，零依赖，自带密码保护。">
+<meta name="theme-color" content="#0b0d12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='56' fill='%232f6df6'/%3E%3Cpolygon points='104,76 104,180 186,128' fill='white'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:title" content="手机看视频 · 把电脑里的片子变成手机上的私人影院">
+<meta property="og:description" content="双击即用的 Windows 小工具：选定文件夹或视频，手机连同一个 WiFi 就能在浏览器里播放。">
+<style>
+:root{
+  --bg:#0b0d12; --panel:#12161f; --panel-2:#161b26; --line:#232a38;
+  --text:#e9edf5; --muted:#8b95a8; --dim:#5f6979;
+  --accent:#2f6df6; --accent-soft:#6aa1ff; --ok:#7bd88f; --warn:#e0b070;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(900px 500px at 50% -180px,rgba(47,109,246,.22),transparent 70%),
+                   linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+  background-size:auto,64px 64px,64px 64px;
+}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(14px);
+  background:rgba(11,13,18,.78);border-bottom:1px solid rgba(35,42,56,.7)}
+nav .wrap{display:flex;align-items:center;gap:26px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;letter-spacing:.2px}
+.brand svg{width:26px;height:26px;flex:0 0 26px}
+nav .links{display:flex;gap:22px;margin-left:auto;font-size:14px;color:var(--muted)}
+nav .links a:hover{color:var(--text)}
+
+header.hero{padding:78px 0 64px}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--accent-soft);
+  background:rgba(47,109,246,.12);border:1px solid rgba(47,109,246,.3);
+  padding:5px 12px;border-radius:100px;letter-spacing:.3px}
+h1{font-size:clamp(34px,5vw,52px);line-height:1.16;margin:20px 0 16px;letter-spacing:-.8px;font-weight:700}
+h1 em{font-style:normal;background:linear-gradient(100deg,#7aa2ff,#2f6df6 60%,#8ab4ff);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{color:var(--muted);font-size:17.5px;max-width:52ch;margin:0 0 28px}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:13px 22px;border-radius:11px;
+  font-size:15px;font-weight:600;transition:transform .12s ease,background .2s,border-color .2s}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);color:#fff;box-shadow:0 8px 24px -10px rgba(47,109,246,.9)}
+.btn.primary:hover{background:#3d78ff}
+.btn.ghost{border:1px solid var(--line);color:var(--muted)}
+.btn.ghost:hover{border-color:#3a465f;color:var(--text);background:var(--panel)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;font-size:12.5px;color:var(--dim)}
+.chips span{border:1px solid var(--line);border-radius:7px;padding:4px 9px;background:rgba(255,255,255,.015)}
+
+.phone{width:290px;margin-left:auto;border-radius:34px;padding:10px;background:#05070b;
+  border:1px solid #2a3140;box-shadow:0 40px 80px -40px rgba(0,0,0,.95),0 0 0 1px rgba(255,255,255,.03) inset}
+.screen{background:#0e1014;border-radius:26px;overflow:hidden;height:520px;display:flex;flex-direction:column}
+.sbar{display:flex;justify-content:space-between;padding:9px 18px 4px;font-size:11px;color:#8b93a1}
+.shead{padding:8px 18px 12px;border-bottom:1px solid #1c212b}
+.shead b{font-size:15px;font-weight:600}
+.shead i{display:block;font-style:normal;font-size:11.5px;color:#6f7889;margin-top:3px}
+.slist{padding:6px 10px;overflow:hidden;flex:1}
+.srow{display:flex;align-items:center;gap:11px;padding:11px 8px;border-bottom:1px solid #171c24}
+.sico{width:30px;height:30px;border-radius:8px;background:#212734;display:grid;place-items:center;
+  font-size:12px;color:#9aa4b6;flex:0 0 30px}
+.sname{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sname small{display:block;font-size:10.5px;color:#6b7385;margin-top:2px}
+.pill{font-size:9.5px;padding:2px 7px;border-radius:20px;background:#22301f;color:#7bd88f;white-space:nowrap}
+.pill.w{background:#33291a;color:#e0b070}
+
+section{padding:64px 0;border-top:1px solid rgba(35,42,56,.55)}
+h2{font-size:27px;letter-spacing:-.3px;margin:0 0 10px;font-weight:680}
+.sub{color:var(--muted);margin:0 0 34px;max-width:64ch}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card{background:linear-gradient(180deg,var(--panel),rgba(18,22,31,.5));
+  border:1px solid var(--line);border-radius:14px;padding:22px;transition:border-color .2s,transform .2s}
+.card:hover{border-color:#33405a;transform:translateY(-2px)}
+.card h3{font-size:15.5px;margin:14px 0 7px;font-weight:640}
+.card p{margin:0;color:var(--muted);font-size:14px;line-height:1.62}
+.card .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  background:rgba(47,109,246,.13);border:1px solid rgba(47,109,246,.28)}
+.card .ic svg{width:18px;height:18px;stroke:#7aa2ff;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;counter-reset:s}
+.step{position:relative;padding:24px 22px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.step::before{counter-increment:s;content:counter(s);position:absolute;top:-13px;left:22px;
+  width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:13px;
+  font-weight:700;display:grid;place-items:center;box-shadow:0 0 0 5px var(--bg)}
+.step b{display:block;font-size:15px;margin:6px 0 6px}
+.step span{color:var(--muted);font-size:13.5px}
+
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-weight:500;font-size:12.5px;letter-spacing:.4px;text-transform:uppercase}
+td:first-child{font-weight:600}
+.yes{color:var(--ok)} .no{color:var(--dim)} .mid{color:var(--warn)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+
+.honest{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.note{border:1px solid var(--line);border-radius:14px;padding:22px;background:var(--panel)}
+.note h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+.note ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+.note li{margin:6px 0}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot.r{background:#ef6b6b}.dot.g{background:var(--ok)}
+
+pre{background:#0a0d13;border:1px solid var(--line);border-radius:12px;padding:16px 18px;
+  overflow-x:auto;font:13.5px/1.7 "Cascadia Code",Consolas,monospace;color:#c7d1e2}
+code{font-family:"Cascadia Code",Consolas,monospace;font-size:.92em;
+  background:rgba(255,255,255,.06);padding:1.5px 5px;border-radius:5px}
+pre code{background:none;padding:0}
+
+details{border:1px solid var(--line);border-radius:12px;padding:16px 20px;background:var(--panel);margin-bottom:10px}
+details summary{cursor:pointer;font-weight:600;font-size:15px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:"+";float:right;color:var(--dim);font-weight:400}
+details[open] summary::after{content:"−"}
+details p{color:var(--muted);font-size:14px;margin:12px 0 0}
+
+footer{border-top:1px solid var(--line);padding:36px 0 56px;color:var(--dim);font-size:13px}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+@media(max-width:860px){
+  .hero-grid{grid-template-columns:1fr;gap:44px}
+  .phone{margin:0 auto}
+  .grid,.steps,.honest{grid-template-columns:1fr}
+  nav .links{display:none}
+  section{padding:48px 0}
+}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="brand" href="#">
+    <svg viewBox="0 0 256 256" aria-hidden="true">
+      <rect x="8" y="8" width="240" height="240" rx="56" fill="#2f6df6"/>
+      <polygon points="104,76 104,180 186,128" fill="#fff"/>
+    </svg>
+    手机看视频
+  </a>
+  <div class="links">
+    <a href="#features">功能</a>
+    <a href="#how">怎么用</a>
+    <a href="#compare">和其他方案比</a>
+    <a href="#security">安全</a>
+    <a href="#download">下载</a>
+  </div>
+</div></nav>
+
+<header class="hero"><div class="wrap hero-grid">
+  <div>
+    <span class="eyebrow">Windows · 纯本地 · 不用上传</span>
+    <h1>电脑里的片子，<br><em>变成手机上的私人影院</em></h1>
+    <p class="lede">
+      选定一个文件夹或者几个单独的文件，手机连上同一个 WiFi，扫一眼地址就能看视频、翻相册、读漫画。
+      不需要装 NAS、不需要注册账号、不用把文件传到任何云端。
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="#download">下载 Windows 版</a>
+      <a class="btn ghost" href="#how">看看怎么用</a>
+    </div>
+    <div class="chips">
+      <span>Windows 10 / 11</span><span>Python 3.10+</span><span>零第三方依赖</span>
+      <span>单文件约 40 KB</span><span>MIT 协议</span>
+    </div>
+  </div>
+
+  <div class="phone" aria-label="手机界面示意图">
+    <div class="screen">
+      <div class="sbar"><span>9:41</span><span>WiFi ▮▮</span></div>
+      <div class="shead"><b>我的视频</b><i>共 3 个位置</i></div>
+      <div class="slist">
+        <div class="srow"><div class="sico">📁</div>
+          <div class="sname">战争与和平<small>H:\战争与和平</small></div></div>
+        <div class="srow"><div class="sico">📁</div>
+          <div class="sname">4k 星际牛仔<small>H:\4k 星际牛仔</small></div></div>
+        <div class="srow"><div class="sico">▶</div>
+          <div class="sname">地狱尖兵<small>MP4 · 3.6 GB</small></div>
+          <span class="pill">可直接播</span></div>
+        <div class="srow"><div class="sico">▶</div>
+          <div class="sname">Cowboy Bebop 01<small>MKV · 3.3 GB</small></div>
+          <span class="pill w">需播放器</span></div>
+        <div class="srow"><div class="sico">▶</div>
+          <div class="sname">Part1.BD1080p<small>MP4 · 5.6 GB</small></div>
+          <span class="pill">可直接播</span></div>
+        <div class="srow"><div class="sico">▶</div>
+          <div class="sname">Part2.BD1080p<small>MP4 · 3.5 GB</small></div>
+          <span class="pill">可直接播</span></div>
+        <div class="srow"><div class="sico">📁</div>
+          <div class="sname">4k 烙印<small>H:\4k 烙印</small></div></div>
+      </div>
+    </div>
+  </div>
+</div></header>
+
+<section id="features"><div class="wrap">
+  <h2>为什么不用现成的媒体服务器</h2>
+  <p class="sub">Jellyfin、Plex 那类东西很强大，代价是安装、开机自启、转码发热、账号体系。这个工具只做一件事：把本机文件交给同一张 WiFi 下的手机。</p>
+  <div class="grid">
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h10"/></svg></div>
+      <h3>自由指定内容</h3>
+      <p>可以是整个剧集目录、整个相册，也可以是三个散装文件。加错了随时移除，位置会被记住。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-6 6"/></svg></div>
+      <h3>照片墙</h3>
+      <p>目录里的图片自动排成缩略图网格，点开全屏、左右滑动翻页。服务端生成缩略图并缓存，几百张也不卡。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h6a3 3 0 013 3v11a3 3 0 00-3-3H4z"/><path d="M20 5h-6a3 3 0 00-3 3v11a3 3 0 013-3h6z"/></svg></div>
+      <h3>PDF 漫画</h3>
+      <p>PDF 逐页渲染成图片，全屏阅读、滑动翻页、跳到指定页。翻过的页会缓存，几十页的漫画也不卡。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v2M14 3v2M10 19v2M14 19v2M3 10h2M3 14h2M19 10h2M19 14h2"/></svg></div>
+      <h3>转码缓存</h3>
+      <p>装了 ffmpeg，电脑把不兼容的片子转成带索引的 MP4 缓存下来。手机浏览器里能像本地文件一样拖，下次秒开。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M11 9l4 3-4 3z"/></svg></div>
+      <h3>手机优先的界面</h3>
+      <p>竖屏排版、拇指好点的行高、文件名自动截断。带搜索框，跨所有位置按名字找片。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7.5-7 9-4-1.5-7-5-7-9V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div>
+      <h3>密码 + 限速</h3>
+      <p>进站先输密码，浏览器记住 30 天。连续错 5 次锁一分钟，防止室友或访客瞎猜。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 18V6M4 12h9a4 4 0 000-8H4"/><path d="M13 12l6 6M19 12l-6 6"/></svg></div>
+      <h3>拖得动进度条</h3>
+      <p>实现了 HTTP Range，手机端快进、后退、断点续播都正常，不会每次从头缓冲几个 GB。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 12h6M9 16h4"/></svg></div>
+      <h3>MKV 也有出路</h3>
+      <p>浏览器解不了的容器，播放页会给出带账号密码的直链，粘进 VLC 就是原画质加字幕。</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v3h16v-3"/></svg></div>
+      <h3>零依赖</h3>
+      <p>只用 Python 标准库和自带的 Tkinter，不装 ffmpeg、不装浏览器驱动，拷过去就能跑。</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <h2>三步，不到一分钟</h2>
+  <p class="sub">没有命令行，没有配置文件。整个流程都在一个窗口里完成。</p>
+  <div class="steps">
+    <div class="step"><b>添加内容</b><span>点「添加文件夹」选剧集或相册目录，或「添加视频/照片」挑几个散装文件。</span></div>
+    <div class="step"><b>点启动</b><span>设一个密码，按下蓝色按钮。窗口里出现形如 http://192.168.1.8:8000 的地址。</span></div>
+    <div class="step"><b>手机打开</b><span>同一 WiFi 下的手机浏览器输入地址，输密码，点片子就能看。</span></div>
+  </div>
+</div></section>
+
+<section id="compare"><div class="wrap">
+  <h2>和现有方案比，差在哪</h2>
+  <p class="sub">说实话：这个想法并不新，同类产品很多。区别只在取舍。</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr>
+      <th>方案</th><th>门槛</th><th>手机适配</th><th>自选单个文件</th><th>密码</th><th>适合谁</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>手机看视频</td><td class="yes">双击即用</td><td class="yes">为竖屏设计</td><td class="yes">支持</td><td class="yes">内置</td><td>只想在卧室看几部片</td></tr>
+      <tr><td>Jellyfin / Emby / Plex</td><td class="no">装服务、建库、刮削</td><td class="yes">原生 App</td><td class="mid">按库组织</td><td class="yes">账号体系</td><td>想要海报墙和远程追剧</td></tr>
+      <tr><td>FileBrowser</td><td class="mid">下载二进制并配置</td><td class="mid">文件管理为主</td><td class="yes">支持</td><td class="yes">多用户</td><td>当网盘用</td></tr>
+      <tr><td>HFS</td><td class="yes">单文件</td><td class="no">上世纪的界面</td><td class="yes">支持</td><td class="mid">有</td><td>临时传个大文件</td></tr>
+      <tr><td>python -m http.server</td><td class="yes">一行命令</td><td class="no">纯目录列表</td><td class="yes">支持</td><td class="no">无</td><td>开发者临时调试</td></tr>
+      <tr><td>SMB 共享 + VLC</td><td class="mid">改共享权限</td><td class="mid">要装播放器</td><td class="yes">支持</td><td class="yes">系统账号</td><td>不想装任何服务</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div></section>
+
+<section id="security"><div class="wrap">
+  <h2>安全边界，写在明面上</h2>
+  <p class="sub">这类工具最容易吹过头。以下是它做得到的和做不到的。</p>
+  <div class="honest">
+    <div class="note">
+      <h3><span class="dot g"></span>已经做到的</h3>
+      <ul>
+        <li>只监听局域网，没有做任何端口映射，互联网上访问不到。</li>
+        <li>所有页面都要密码，未登录只能看到登录框。</li>
+        <li>连续输错 5 次锁定 60 秒。</li>
+        <li>路径做了越界校验，`../` 之类的请求会被拒绝。</li>
+        <li>只列出视频扩展名，其他文件不会出现在页面里。</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3><span class="dot r"></span>做不到的</h3>
+      <ul>
+        <li>传输是明文 HTTP。同一 WiFi 下有人刻意抓包，能看到内容和密码。</li>
+        <li>不做加密存储，密码明文保存在本机配置文件里。</li>
+        <li>不适合放到公网。它对“有恶意的人”没有防御，只对“好奇的室友”有效。</li>
+        <li>电脑锁屏、睡眠、断网时，手机端一律打不开。</li>
+      </ul>
+    </div>
+  </div>
+</div></section>
+
+<section id="download"><div class="wrap">
+  <h2>下载</h2>
+  <p class="sub">解压后双击「手机看视频.bat」；装了 Python 的话，也可以直接双击 phone_video_app.pyw。</p>
+  <div class="cta" style="margin-bottom:26px">
+    <a class="btn primary" href="https://github.com/AauoqaJ/phone-video/releases/latest">前往 Releases 下载</a>
+    <a class="btn ghost" href="#requirements">运行要求</a>
+  </div>
+  <pre><code># 需要 Python 3.10 或更高版本（安装时勾选 Add Python to PATH）
+python --version
+
+# 解压后，在文件夹里双击
+手机看视频.bat
+
+# 或者用命令行启动
+pythonw phone_video_app.pyw</code></pre>
+
+  <div id="requirements" style="margin-top:26px" class="honest">
+    <div class="note">
+      <h3><span class="dot g"></span>运行要求</h3>
+      <ul>
+        <li>Windows 10 / 11</li>
+        <li>Python 3.10+，自带 tkinter（官方安装包默认包含）</li>
+        <li>电脑和手机在同一个局域网</li>
+        <li>首次启动时在防火墙提示里勾选「专用网络」</li>
+        <li>可选：装 ffmpeg 才启用电脑转码</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3><span class="dot g"></span>已知限制</h3>
+      <ul>
+        <li>不是独立 exe，依赖本机 Python 环境</li>
+        <li>没有转码：HEVC、RMVB 这类要靠手机自己的解码能力</li>
+        <li>没有海报刮削和观看记录</li>
+        <li>一次只服务少量设备，面向个人使用</li>
+      </ul>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>常见问题</h2>
+  <details><summary>手机打开一直转圈，最后说无法访问</summary>
+    <p>先确认两台设备连的是同一个 WiFi，并且不是路由器的「访客网络」（访客网络通常隔离设备）。然后检查电脑的防火墙有没有放行 Python，第一次启动时那个弹窗要勾「专用网络」。最后确认窗口里的地址和 IP 没写错。</p></details>
+  <details><summary>MKV 只有声音没有画面</summary>
+    <p>浏览器对 MKV 容器和 HEVC 编码支持很差。用 VLC：选「打开网络串流」，把播放页下方带账号密码的直链粘进去，能原画质播放，外挂和内封字幕也正常。</p></details>
+  <details><summary>能不能在外面用 4G 看</summary>
+    <p>不能。地址是内网地址，只在本机所在网络有效。要远程访问需要额外的隧道工具（如 Tailscale），或者换成 Jellyfin 那类带远程访问方案的服务。不建议直接做端口映射，风险远大于便利。</p></details>
+  <details><summary>会被别人看到吗</summary>
+    <p>同一 WiFi 下的人能看到登录页，但看不到任何文件名，除非知道密码。要更保险，可以让手机开热点、电脑连热点，这样整个网络里只有这两台设备。</p></details>
+</div></section>
+
+<footer><div class="wrap">
+  <div>手机看视频 · 一个周末写出来的小工具</div>
+  <div>MIT License · 用 Python 标准库写成</div>
+</div></footer>
+
+</body>
+</html>
 
